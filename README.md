@@ -10,7 +10,7 @@ Please be nice to their endpoints and don't abuse them!
  - Login() must be called manually when the session times out
  - Can't make any trades
 
-# Hi, Coinsquare!
+## Hi, Coinsquare!
 
 If you would like this project removed from GitHub please reach out via my email in my GitHub profile and I will take it down immediately. Thanks!
 
