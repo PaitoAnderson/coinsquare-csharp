@@ -207,7 +207,6 @@ namespace CoinsquareAPI
             };
 
             var results = await AuthClient.SendAsync(request);
-            var response = await results.Content.ReadAsStringAsync();
             results.EnsureSuccessStatusCode();
 
             var loginResponse = await results.Deserialize<LoginResponse>();
