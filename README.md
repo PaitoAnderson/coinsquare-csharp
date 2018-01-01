@@ -8,8 +8,15 @@ Please be nice to their endpoints and don't abuse them!
 
 ## Limitations
  - Login() must be called manually when the session times out
- - Trades untested
  - Quotes must be divided by 100000000
+ 
+## Example Trade
+
+Buying 100 CAD of BTC
+```
+var tradeQuote = await _coinsquare.GetQuickTrade("CAD", "BTC", 10000);
+var trade = await _coinsquare.QuickTrade("CAD", "BTC", 10000, tradeQuote.coin_request);
+```
 
 ## Hi, Coinsquare!
 
