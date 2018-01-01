@@ -8,7 +8,8 @@ Please be nice to their endpoints and don't abuse them!
 
 ## Limitations
  - Login() must be called manually when the session times out
- - Can't make any trades
+ - Trades untested
+ - Quotes must be divided by 100000000
 
 ## Hi, Coinsquare!
 

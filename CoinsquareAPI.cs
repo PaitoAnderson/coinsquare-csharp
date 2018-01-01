@@ -20,6 +20,7 @@ namespace CoinsquareAPI
         Task<GetBalancesResponse> GetBalances();
         Task<GetLedgerResponse> GetLedger(string symbol, int page = 0, int rows_per_page = 10);
         Task<GetQuickTradeResponse> GetQuickTrade(string symbol_from, string symbol_to, decimal amount_from);
+        Task QuickTrade(string symbol_from, string symbol_to, decimal amount_from, decimal amount_to);
     }
 
     public class LoginRequest
@@ -165,6 +166,26 @@ namespace CoinsquareAPI
         public string symbol_to { get; set; }
     }
 
+    public class QuickTradeRequest
+    {
+        public string symbol_from { get; set; }
+        public string symbol_to { get; set; }
+        public decimal amount_from { get; set; }
+        public decimal amount_to { get; set; }
+    }
+
+    public class QuickTradeResponse
+    {
+        public decimal base_cost { get; set; }
+        public decimal btc_cost { get; set; }
+        public decimal btc_proc { get; set; }
+        public decimal coin_fee { get; set; }
+        public decimal coin_proceeds { get; set; }
+        public string message { get; set; }
+        public string symbol_from { get; set; }
+        public string symbol_to { get; set; }
+    }
+
     public class Coinsquare : ICoinsquare
     {
         private static string BaseUrl = @"https://coinsquare.io/api/v1";
@@ -262,7 +283,7 @@ namespace CoinsquareAPI
 
             var results = await AuthClient.SendAsync(request);
             results.EnsureSuccessStatusCode();
-            return (await results.Deserialize<GetBalancesResponse>());
+            return await results.Deserialize<GetBalancesResponse>();
         }
 
         public async Task<GetLedgerResponse> GetLedger(string symbol, int page = 0, int rows_per_page = 10)
@@ -292,7 +313,7 @@ namespace CoinsquareAPI
 
             var results = await AuthClient.SendAsync(request);
             results.EnsureSuccessStatusCode();
-            return (await results.Deserialize<GetLedgerResponse>());
+            return await results.Deserialize<GetLedgerResponse>();
         }
 
         public async Task<GetQuickTradeResponse> GetQuickTrade(string symbol_from, string symbol_to, decimal amount_from)
@@ -322,7 +343,38 @@ namespace CoinsquareAPI
 
             var results = await AuthClient.SendAsync(request);
             results.EnsureSuccessStatusCode();
-            return (await results.Deserialize<GetQuickTradeResponse>());
+            return await results.Deserialize<GetQuickTradeResponse>();
+        }
+
+        public async Task<QuickTradeResponse> QuickTrade(string symbol_from, string symbol_to, decimal amount_from, decimal amount_to)
+        {
+            var url = @"/auth/orders/quicktrade";
+            var timestamp = GetCurrentTimestamp();
+            var quickTradeRequest = new QuickTradeRequest
+            {
+                symbol_from = symbol_from,
+                symbol_to = symbol_to,
+                amount_from = amount_from,
+                amount_to = amount_to
+            };
+            var parameters = JsonConvert.SerializeObject(quickTradeRequest);
+            var signature = GetSignature("POST", url, timestamp, parameters);
+
+            var request = new HttpRequestMessage
+            {
+                RequestUri = new Uri($"{BaseUrl}{url}?cacheBuster={timestamp}"),
+                Method = HttpMethod.Post,
+                Headers =
+                {
+                    { "x-cs-nonce", timestamp.ToString() },
+                    { "x-cs-parameters", Convert.ToBase64String(Encoding.UTF8.GetBytes(parameters)) },
+                    { "x-cs-signature", signature }
+                },
+            };
+
+            var results = await AuthClient.SendAsync(request);
+            results.EnsureSuccessStatusCode();
+            return await results.Deserialize<QuickTradeResponse>();
         }
 
         private async Task SetCookie()
