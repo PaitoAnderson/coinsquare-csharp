@@ -364,7 +364,7 @@ namespace CoinsquareAPI
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(signatureHex));
         }
 
-        public List<Cookie> GetAllCookies()
+        private List<Cookie> GetAllCookies()
         {
             var cookies = new List<Cookie>();
             var table = (Hashtable)AuthClientHandler.CookieContainer.GetType().InvokeMember("m_domainTable",
