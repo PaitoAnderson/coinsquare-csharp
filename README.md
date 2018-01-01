@@ -2,13 +2,12 @@
 Unofficial Coinsquare.io API for C#
 
 ## Usage
-Just copy [CoinsquareAPI.cs](CoinsquareAPI.cs) to your .Net project.
+Just copy [CoinsquareAPI.cs](CoinsquareAPI.cs) to your .Net project. Quotes must be divided by 100000000
 
 Please be nice to their endpoints and don't abuse them!
 
 ## Limitations
  - Login() must be called manually when the session times out
- - Quotes must be divided by 100000000
  
 ## Example Trade
 
