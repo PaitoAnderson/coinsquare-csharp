@@ -12,7 +12,7 @@ Please be nice to their endpoints and don't abuse them!
 ## Example Trade
 
 Buying 100 CAD of BTC
-```
+```csharp
 var tradeQuote = await _coinsquare.GetQuickTrade("CAD", "BTC", 10000);
 var trade = await _coinsquare.QuickTrade("CAD", "BTC", 10000, tradeQuote.coin_request);
 ```
