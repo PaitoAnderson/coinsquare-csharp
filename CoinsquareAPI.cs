@@ -66,7 +66,9 @@ namespace CoinsquareAPI
         public decimal? ask { get; set; }
         public decimal low24 { get; set; }
         public decimal high24 { get; set; }
-        public decimal ret24 { get; set; }
+        
+        // Issue with Exponents (-1.71476e-05, 2.09722e-06)
+        // public decimal ret24 { get; set; }
     }
 
     public class GetBalancesResponse
