@@ -190,7 +190,7 @@ namespace CoinsquareAPI
 
     public class Coinsquare : ICoinsquare
     {
-        private static string BaseUrl = @"https://coinsquare.io/api/v1";
+        private static string BaseUrl = @"https://coinsquare.com/api/v1";
 
         private static HttpClient Client = new HttpClient();
 
@@ -400,10 +400,10 @@ namespace CoinsquareAPI
             results.EnsureSuccessStatusCode();
 
             // Fix cookie domain
-            var cookie = GetAllCookies().SingleOrDefault(x => x.Domain == "coinsquare.io");
+            var cookie = GetAllCookies().SingleOrDefault(x => x.Domain == "coinsquare.com");
             if (cookie != null)
             {
-                AuthClientHandler.CookieContainer.Add(new Uri("https://coinsquare.io/"), new Cookie("SKEY", cookie.Value));
+                AuthClientHandler.CookieContainer.Add(new Uri("https://coinsquare.com/"), new Cookie("SKEY", cookie.Value));
             }
         }
 
