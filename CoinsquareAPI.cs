@@ -14,13 +14,26 @@ namespace CoinsquareAPI
     public interface ICoinsquare
     {
         Task Login(string username, string password, string token = null);
+        Task<GetUserInformationResponse> GetUserInformation();
         Task Logout();
 
         Task<QuoteResponse[]> GetQuotes();
+
+        /// <param name="point_interval">10mins, 1hour, or 1day</param>
+        /// <returns>
+        /// Oldest to Newest
+        /// [0] = Unix Timestamp GMT
+        /// [1] = Bid?
+        /// [2] = Ask?
+        /// [3] = 
+        /// [4] = Chart Display?
+        /// [5] = Volume?
+        /// </returns>
+        Task<long[][]> GetChart(string symbol, string symbol_base = "BTC", string point_interval = "10mins");
         Task<GetBalancesResponse> GetBalances();
-        Task<GetLedgerResponse> GetLedger(string symbol, int page = 0, int rows_per_page = 10);
+        Task<GetTransactionsResponse> GetTransactions(string symbol, string category = "quick_trade", int page = 0, int page_size = 10);
         Task<GetQuickTradeResponse> GetQuickTrade(string symbol_from, string symbol_to, decimal amount_from);
-        Task QuickTrade(string symbol_from, string symbol_to, decimal amount_from, decimal amount_to);
+        Task<QuickTradeResponse> QuickTrade(string symbol_from, string symbol_to, decimal amount_from, decimal amount_to);
     }
 
     public class LoginRequest
@@ -42,7 +55,26 @@ namespace CoinsquareAPI
         public string key_referral { get; set; }
         public int otp_status { get; set; }
         public long sid { get; set; }
-        public int unread{ get; set; } 
+        public int unread { get; set; }
+        public string username { get; set; }
+        public bool verified_cell { get; set; }
+        public bool verified_profile { get; set; }
+        public string xkey { get; set; }
+    }
+
+    public class GetUserInformationResponse
+    {
+        public string akey { get; set; }
+        public string base_currency { get; set; }
+        public long date_time { get; set; }
+        public string email { get; set; }
+        public string flags { get; set; }
+        public string id { get; set; }
+        public string key_audit { get; set; }
+        public string key_referral { get; set; }
+        public long otp_status { get; set; }
+        public long sid { get; set; }
+        public int unread { get; set; }
         public string username { get; set; }
         public bool verified_cell { get; set; }
         public bool verified_profile { get; set; }
@@ -66,14 +98,14 @@ namespace CoinsquareAPI
         public decimal? ask { get; set; }
         public decimal low24 { get; set; }
         public decimal high24 { get; set; }
-        
+
         // Issue with Exponents (-1.71476e-05, 2.09722e-06)
         // public decimal ret24 { get; set; }
     }
 
     public class GetBalancesResponse
     {
-        public GetBalancesAccountsResponse accounts { get; set; }
+        public GetBalancesAccountsResponse accounts { get; set; } = new GetBalancesAccountsResponse();
     }
 
     public class GetBalancesAccountsResponse
@@ -118,32 +150,25 @@ namespace CoinsquareAPI
         public int flg { get; set; }
     }
 
-    public class GetLedgerRequest
+    public class GetTransactionsResponse
     {
+        public string category { get; set;}
+        public int? offset { get; set; }
+        public int page { get; set; }
         public string symbol { get; set; }
-        public int page { get; set; }
-        public int rows_per_page { get; set; }
+        public int transaction_count { get; set; }
+        public GetTransctionsRowResponse[] transactions { get; set; }
     }
 
-    public class GetLedgerResponse
+    public class GetTransctionsRowResponse
     {
-        public int offset { get; set; }
-        public int page { get; set; }
-        public decimal previous_balance { get; set; }
-        public int row_count { get; set; }
-        public GetLedgerRowResponse[] rows { get; set; }
-    }
-
-    public class GetLedgerRowResponse
-    {
-        public decimal amount { get; set; }
-        public decimal balance { get; set; }
-        public string category { get; set; }
         public long date { get; set; }
-        public string description { get; set; }
-        public long lid { get; set; }
-        public int num_type { get; set; }
-        public string operation { get; set; }
+        public decimal from_amount { get; set; }
+        public string from_currency { get; set; }
+        public decimal from_lid { get; set; }
+        public decimal to_amount { get; set; }
+        public string to_currency { get; set; }
+        public decimal to_lid { get; set; }
     }
 
     public class GetQuickTradeRequest
@@ -193,15 +218,11 @@ namespace CoinsquareAPI
         private static string BaseUrl = @"https://coinsquare.com/api/v1";
 
         private static HttpClient Client = new HttpClient();
+        private static HttpClient AuthClient;
 
-        private static HttpClientHandler AuthClientHandler = new HttpClientHandler
-        {
-            UseCookies = true,
-            CookieContainer = new CookieContainer()
-        };
-        private static HttpClient AuthClient = new HttpClient(AuthClientHandler);
-
-        private string Key { get; set; }
+        private string akey { get; set; }
+        private long sid { get; set; }
+        private string xkey { get; set; }
 
         public async Task Login(string username, string password, string token = null)
         {
@@ -233,7 +254,35 @@ namespace CoinsquareAPI
             results.EnsureSuccessStatusCode();
 
             var loginResponse = await results.Deserialize<LoginResponse>();
-            Key = loginResponse.akey;
+            akey = loginResponse.akey;
+        }
+
+        public async Task<GetUserInformationResponse> GetUserInformation()
+        {
+            var url = @"/auth/user/information";
+            var timestamp = GetCurrentTimestamp();
+            var signature = GetSignature("POST", url, timestamp, string.Empty);
+
+            var request = new HttpRequestMessage
+            {
+                RequestUri = new Uri($"{BaseUrl}{url}?cacheBuster={timestamp}"),
+                Method = HttpMethod.Get,
+                Headers =
+                {
+                    { "x-cs-nonce", timestamp.ToString() },
+                    { "x-cs-parameters", string.Empty },
+                    { "x-cs-signature", signature }
+                },
+            };
+
+            var results = await AuthClient.SendAsync(request);
+            results.EnsureSuccessStatusCode();
+
+            var response = await results.Deserialize<GetUserInformationResponse>();
+            sid = response.sid;
+            xkey = response.xkey;
+
+            return response;
         }
 
         public async Task Logout()
@@ -265,6 +314,13 @@ namespace CoinsquareAPI
             return (await results.Deserialize<QuotesResponse>()).quotes;
         }
 
+        public async Task<long[][]> GetChart(string symbol, string symbol_base, string point_interval)
+        {
+            var results = await Client.GetAsync($"{BaseUrl}/data/chart/{symbol}/{symbol_base}/{point_interval}");
+            results.EnsureSuccessStatusCode();
+            return await results.Deserialize<long[][]>();
+        }
+
         public async Task<GetBalancesResponse> GetBalances()
         {
             var url = @"/auth/account/balances";
@@ -288,34 +344,24 @@ namespace CoinsquareAPI
             return await results.Deserialize<GetBalancesResponse>();
         }
 
-        public async Task<GetLedgerResponse> GetLedger(string symbol, int page = 0, int rows_per_page = 10)
+        public async Task<GetTransactionsResponse> GetTransactions(string symbol, string category, int page, int page_size)
         {
-            var url = @"/auth/account/ledger";
+            var url = $"/kingslanding/auth/transactions/ledger?year=-1&category={category}&symbol={symbol}&page={page}&page_size={page_size}";
             var timestamp = GetCurrentTimestamp();
-            var getLedgerRequest = new GetLedgerRequest
-            {
-                symbol = symbol,
-                page = page,
-                rows_per_page = rows_per_page
-            };
-            var parameters = JsonConvert.SerializeObject(getLedgerRequest);
-            var signature = GetSignature("GET", url, timestamp, parameters);
-
             var request = new HttpRequestMessage
             {
                 RequestUri = new Uri($"{BaseUrl}{url}?cacheBuster={timestamp}"),
                 Method = HttpMethod.Get,
                 Headers =
                 {
-                    { "x-cs-nonce", timestamp.ToString() },
-                    { "x-cs-parameters", Convert.ToBase64String(Encoding.UTF8.GetBytes(parameters)) },
-                    { "x-cs-signature", signature }
+                    { "x-cs-sid", sid.ToString() },
+                    { "x-cs-xkey", xkey }
                 },
             };
 
             var results = await AuthClient.SendAsync(request);
             results.EnsureSuccessStatusCode();
-            return await results.Deserialize<GetLedgerResponse>();
+            return await results.Deserialize<GetTransactionsResponse>();
         }
 
         public async Task<GetQuickTradeResponse> GetQuickTrade(string symbol_from, string symbol_to, decimal amount_from)
@@ -328,6 +374,7 @@ namespace CoinsquareAPI
                 symbol_to = symbol_to,
                 amount_from = amount_from
             };
+
             var parameters = JsonConvert.SerializeObject(getQuickTradeRequest);
             var signature = GetSignature("GET", url, timestamp, parameters);
 
@@ -381,6 +428,14 @@ namespace CoinsquareAPI
 
         private async Task SetCookie()
         {
+            // Setup Auth Client
+            var authClientHandler = new HttpClientHandler
+            {
+                UseCookies = true,
+                CookieContainer = new CookieContainer()
+            };
+            AuthClient = new HttpClient(authClientHandler);
+
             var url = "/auth/cookie";
             var timestamp = GetCurrentTimestamp();
 
@@ -400,29 +455,29 @@ namespace CoinsquareAPI
             results.EnsureSuccessStatusCode();
 
             // Fix cookie domain
-            var cookie = GetAllCookies().SingleOrDefault(x => x.Domain == "coinsquare.com");
-            if (cookie != null)
+            var cookies = GetAllCookies(authClientHandler).Where(x => x.Domain == "coinsquare.com");
+            foreach (var cookie in cookies)
             {
-                AuthClientHandler.CookieContainer.Add(new Uri("https://coinsquare.com/"), new Cookie("SKEY", cookie.Value));
+                authClientHandler.CookieContainer.Add(new Uri("https://coinsquare.com/"), new Cookie("SKEY", cookie.Value));
             }
         }
 
         private string GetSignature(string method, string url, long timestamp, string parameters)
         {
             url = url.Replace("/auth", string.Empty);
-            var hmacsha386 = new HMACSHA384(Encoding.UTF8.GetBytes(Key));
+            var hmacsha386 = new HMACSHA384(Encoding.UTF8.GetBytes(akey));
             var signatureString = $"{method}:{url}:{timestamp}:{parameters}";
             var signature = hmacsha386.ComputeHash(Encoding.UTF8.GetBytes(signatureString));
             var signatureHex = BitConverter.ToString(signature).Replace("-", "").ToLower();
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(signatureHex));
         }
 
-        private List<Cookie> GetAllCookies()
+        private List<Cookie> GetAllCookies(HttpClientHandler authClientHandler)
         {
             var cookies = new List<Cookie>();
-            var table = (Hashtable)AuthClientHandler.CookieContainer.GetType().InvokeMember("m_domainTable",
+            var table = (Hashtable)authClientHandler.CookieContainer.GetType().InvokeMember("m_domainTable",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.GetField |
-                System.Reflection.BindingFlags.Instance, null, AuthClientHandler.CookieContainer, new object[] { });
+                System.Reflection.BindingFlags.Instance, null, authClientHandler.CookieContainer, new object[] { });
             foreach (object pathList in table.Values)
             {
                 var lstCookieCol = (SortedList)pathList.GetType().InvokeMember("m_list",
